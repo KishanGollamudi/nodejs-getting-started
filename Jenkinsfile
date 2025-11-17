@@ -51,17 +51,19 @@ pipeline {
             }
         }
 
-        stage('Package Artifact') {
+        stage('Package Artifact (ZIP)') {
             steps {
-                echo "Creating ZIP..."
-                sh "apt-get update && apt-get install -y zip"
-                sh "zip -r nodeapp-${VERSION}.zip ."
+                echo "Creating ZIP without apt-get..."
+                sh """
+                    npm install -g zip-a-folder
+                    node -e "require('zip-a-folder').zip('.', 'nodeapp-${VERSION}.zip')"
+                """
             }
         }
 
         stage('Upload to Nexus') {
             steps {
-                echo "Uploading to Nexus RAW repository..."
+                echo "Uploading ZIP to Nexus..."
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus',
                     usernameVariable: 'NEXUS_USER',
