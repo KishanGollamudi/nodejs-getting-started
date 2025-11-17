@@ -2,104 +2,90 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "kishangollamudi/nodeapp"
-        VERSION      = "${env.BUILD_NUMBER}"
-        NEXUS_URL    = "http://54.85.207.105:8081/repository/nodejs"
+        SONAR_TOKEN = credentials('sonar-token')
+        NEXUS_CRED  = credentials('nexus')
+        DOCKER_HUB  = credentials('dockerhub-user')
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                echo "Checking out code..."
+                git branch: 'main', url: 'https://github.com/KishanGollamudi/nodejs-getting-started.git'
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install & Build App') {
             steps {
-                echo "Running npm install..."
-                // keep this simple — runs using node/npm present in the Jenkins agent container
-                sh "npm install --no-audit --no-fund"
-            }
-        }
+                sh '''
+                    apt-get update && apt-get install -y zip
 
-        stage('Run Tests') {
-            steps {
-                echo "Skipping tests (adjust if you want to run them)..."
-                sh 'echo "Tests skipped"'
+                    npm install --no-audit --no-fund
+
+                    echo "No build step for this project, skipping build..."
+                    
+                    zip -r artifact.zip \
+                        . \
+                        --exclude="**/node_modules/**"
+                '''
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                echo "Running SonarQube analysis..."
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('My-Sonar') {
-                        script {
-                            // Try to use the Jenkins SonarScanner installation if present; otherwise call sonar-scanner
-                            try {
-                                def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                                sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=nodeapp -Dsonar.sources=. -Dsonar.login=${SONAR_TOKEN}"
-                            } catch (err) {
-                                echo "SonarScanner tool not found in Jenkins tools; falling back to 'sonar-scanner' in PATH"
-                                sh "sonar-scanner -Dsonar.projectKey=nodeapp -Dsonar.sources=. -Dsonar.login=${SONAR_TOKEN}"
-                            }
-                        }
-                    }
+                withSonarQubeEnv('My-Sonar') {
+                    sh '''
+                        export PATH=$PATH:/opt/sonar-scanner/bin
+
+                        sonar-scanner \
+                        -Dsonar.projectKey=nodeapp \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://54.85.207.105:9000 \
+                        -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
 
-        stage('Package Artifact (tar.gz)') {
+        stage('Upload Artifact to Nexus') {
             steps {
-                echo "Creating deterministic tar.gz from current commit using git-archive..."
-                // git archive creates a clean, consistent archive (no 'file changed' race)
-                sh "git archive --format=tar.gz -o nodeapp-${VERSION}.tar.gz HEAD"
-            }
-        }
-
-        stage('Upload to Nexus') {
-            steps {
-                echo "Uploading artifact to Nexus (raw repo) ..."
-                withCredentials([usernamePassword(credentialsId: 'nexus', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                    sh """
-                        curl -v -u $NEXUS_USER:$NEXUS_PASS \
-                          --fail --show-error \
-                          --upload-file nodeapp-${VERSION}.tar.gz \
-                          ${NEXUS_URL}/nodeapp-${VERSION}.tar.gz
-                    """
-                }
+                sh '''
+                    curl -u $NEXUS_CRED_USR:$NEXUS_CRED_PSW \
+                    --upload-file artifact.zip \
+                    http://54.85.207.105:8081/repository/nodejs/artifact-${BUILD_NUMBER}.zip
+                '''
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image..."
-                script {
-                    docker.build("${DOCKER_IMAGE}:${VERSION}")
-                }
+                sh '''
+                    docker build \
+                    --build-arg NEXUS_URL=http://54.85.207.105:8081 \
+                    --build-arg REPO_PATH=repository/nodejs/artifact-${BUILD_NUMBER}.zip \
+                    --build-arg NEXUS_USER=$NEXUS_CRED_USR \
+                    --build-arg NEXUS_PASS=$NEXUS_CRED_PSW \
+                    -t kishangollamudi/nodeapp:${BUILD_NUMBER} .
+                '''
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Push to Docker Hub') {
             steps {
-                echo "Pushing Docker image to Docker Hub..."
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-user', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-                    sh """
-                        echo $DH_PASS | docker login -u $DH_USER --password-stdin
-                        docker push ${DOCKER_IMAGE}:${VERSION}
-                        docker tag ${DOCKER_IMAGE}:${VERSION} ${DOCKER_IMAGE}:latest
-                        docker push ${DOCKER_IMAGE}:latest
-                    """
-                }
+                sh '''
+                    echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
+                    docker push kishangollamudi/nodeapp:${BUILD_NUMBER}
+                    docker tag kishangollamudi/nodeapp:${BUILD_NUMBER} kishangollamudi/nodeapp:latest
+                    docker push kishangollamudi/nodeapp:latest
+                '''
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning workspace..."
-            cleanWs()
+            echo 'Pipeline finished!'
         }
     }
 }
