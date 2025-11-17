@@ -3,7 +3,6 @@ pipeline {
 
     tools {
         nodejs 'NodeJS-20'
-        sonarScanner 'SonarScanner'
     }
 
     environment {
@@ -38,15 +37,20 @@ pipeline {
             steps {
                 echo "Running SonarQube analysis..."
 
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('My-Sonar') {
-                        sh """
-                            ${tool 'SonarScanner'}/bin/sonar-scanner \
-                              -Dsonar.projectKey=nodeapp \
-                              -Dsonar.sources=. \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
-                        """
+                script {
+                    // Load Sonar Scanner Tool
+                    def scannerHome = tool 'SonarScanner'
+
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        withSonarQubeEnv('My-Sonar') {
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                  -Dsonar.projectKey=nodeapp \
+                                  -Dsonar.sources=. \
+                                  -Dsonar.host.url=$SONAR_HOST_URL \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
@@ -63,7 +67,7 @@ pipeline {
 
         stage('Push to DockerHub') {
             steps {
-                echo "Pushing to DockerHub..."
+                echo "Pushing image to DockerHub..."
 
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-user',
