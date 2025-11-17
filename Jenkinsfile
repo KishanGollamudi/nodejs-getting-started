@@ -15,7 +15,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Checking out code..."
                 checkout scm
             }
         }
@@ -49,21 +48,10 @@ pipeline {
 
         stage('Package Artifact (ZIP)') {
             steps {
-                echo "Creating ZIP using pure Node.js..."
-
-                sh '''
-                    node - << 'EOF'
-                    const fs = require('fs');
-                    const archiver = require('archiver');
-
-                    const output = fs.createWriteStream('nodeapp-${VERSION}.zip');
-                    const archive = archiver('zip');
-
-                    archive.pipe(output);
-                    archive.directory('.', false);
-                    archive.finalize();
-                    EOF
-                '''
+                echo "Creating TAR.GZ artifact..."
+                sh """
+                    tar -czf nodeapp-${VERSION}.tar.gz .
+                """
             }
         }
 
@@ -76,8 +64,8 @@ pipeline {
                 )]) {
                     sh """
                         curl -v -u $NEXUS_USER:$NEXUS_PASS \
-                        --upload-file nodeapp-${VERSION}.zip \
-                        ${NEXUS_URL}/nodeapp-${VERSION}.zip
+                        --upload-file nodeapp-${VERSION}.tar.gz \
+                        ${NEXUS_URL}/nodeapp-${VERSION}.tar.gz
                     """
                 }
             }
