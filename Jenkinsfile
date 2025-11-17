@@ -8,8 +8,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "kishangollamudi/nodeapp"
         VERSION = "${env.BUILD_NUMBER}"
-        NEXUS_REPO = "node-raw-repo"
-        NEXUS_URL  = "http://nexus:8081"
+        NEXUS_URL = "http://54.85.207.105:8081/repository/nodejs"
     }
 
     stages {
@@ -38,20 +37,14 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo "Running SonarQube analysis..."
-
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('My-Sonar') {
-
-                        script {
-                            def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-
-                            sh """
-                                ${scannerHome}/bin/sonar-scanner \
-                                  -Dsonar.projectKey=nodeapp \
-                                  -Dsonar.sources=. \
-                                  -Dsonar.login=$SONAR_TOKEN
-                            """
-                        }
+                        sh """
+                            sonar-scanner \
+                              -Dsonar.projectKey=nodeapp \
+                              -Dsonar.sources=. \
+                              -Dsonar.login=$SONAR_TOKEN
+                        """
                     }
                 }
             }
@@ -66,16 +59,18 @@ pipeline {
 
         stage('Upload to Nexus') {
             steps {
-                echo "Uploading ZIP to Nexus..."
-                withCredentials([usernamePassword(
-                    credentialsId: 'nexus',
-                    usernameVariable: 'NEXUS_USER',
-                    passwordVariable: 'NEXUS_PASS'
-                )]) {
+                echo "Uploading ZIP to Nexus RAW repo..."
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'nexus',
+                        usernameVariable: 'NEXUS_USER',
+                        passwordVariable: 'NEXUS_PASS'
+                    )
+                ]) {
                     sh """
                         curl -v -u $NEXUS_USER:$NEXUS_PASS \
                         --upload-file nodeapp-${VERSION}.zip \
-                        $NEXUS_URL/repository/$NEXUS_REPO/nodeapp-${VERSION}.zip
+                        ${NEXUS_URL}/nodeapp-${VERSION}.zip
                     """
                 }
             }
@@ -93,11 +88,13 @@ pipeline {
         stage('Push to DockerHub') {
             steps {
                 echo "Pushing Docker image..."
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-user',
-                    usernameVariable: 'DH_USER',
-                    passwordVariable: 'DH_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-user',
+                        usernameVariable: 'DH_USER',
+                        passwordVariable: 'DH_PASS'
+                    )
+                ]) {
                     sh """
                         echo $DH_PASS | docker login -u $DH_USER --password-stdin
                         docker push ${DOCKER_IMAGE}:${VERSION}
