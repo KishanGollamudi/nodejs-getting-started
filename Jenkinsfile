@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         nodejs 'NodeJS-20'
-        sonarScanner 'SonarScanner'
+        sonarRunner 'SonarScanner'   // FIXED TOOL NAME
     }
 
     environment {
@@ -39,10 +39,12 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo "Running SonarQube analysis..."
+
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('My-Sonar') {
                         script {
                             def scannerHome = tool 'SonarScanner'
+
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
                                   -Dsonar.projectKey=nodeapp \
@@ -64,7 +66,7 @@ pipeline {
 
         stage('Upload to Nexus') {
             steps {
-                echo "Uploading ZIP to Nexus RAW repo..."
+                echo "Uploading ZIP to Nexus..."
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus',
                     usernameVariable: 'NEXUS_USER',
