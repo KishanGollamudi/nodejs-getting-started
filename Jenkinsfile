@@ -3,6 +3,7 @@ pipeline {
 
     tools {
         nodejs 'NodeJS-20'
+        sonarScanner 'SonarScanner'
     }
 
     environment {
@@ -40,12 +41,15 @@ pipeline {
                 echo "Running SonarQube analysis..."
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('My-Sonar') {
-                        sh """
-                            sonar-scanner \
-                              -Dsonar.projectKey=nodeapp \
-                              -Dsonar.sources=. \
-                              -Dsonar.login=$SONAR_TOKEN
-                        """
+                        script {
+                            def scannerHome = tool 'SonarScanner'
+                            sh """
+                                ${scannerHome}/bin/sonar-scanner \
+                                  -Dsonar.projectKey=nodeapp \
+                                  -Dsonar.sources=. \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
