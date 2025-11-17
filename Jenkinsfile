@@ -3,7 +3,6 @@ pipeline {
 
     tools {
         nodejs 'NodeJS-20'
-        sonarRunner 'SonarScanner'   // FIXED TOOL NAME
     }
 
     environment {
@@ -42,8 +41,9 @@ pipeline {
 
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('My-Sonar') {
+
                         script {
-                            def scannerHome = tool 'SonarScanner'
+                            def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
 
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
