@@ -8,8 +8,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "kishangollamudi/nodeapp"
         VERSION = "${env.BUILD_NUMBER}"
-        NEXUS_REPO = "nodejs"
-        NEXUS_URL  = "http://54.85.207.105:8081/repository"
+        NEXUS_URL  = "http://54.85.207.105:8081/repository/nodejs"
     }
 
     stages {
@@ -23,21 +22,21 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                echo "Running npm install..."
+                echo "npm install..."
                 sh "npm install"
             }
         }
 
         stage('Run Tests') {
             steps {
-                echo "Skipping tests..."
+                echo "Skipping Tests..."
                 sh 'echo "Tests skipped"'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                echo "Running SonarQube analysis..."
+                echo "Running Sonar Analysis..."
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('My-Sonar') {
                         sh """
@@ -53,10 +52,9 @@ pipeline {
 
         stage('Package Artifact (ZIP)') {
             steps {
-                echo "Creating ZIP without apt-get..."
+                echo "Zipping project using NPX..."
                 sh """
-                    npm install -g zip-a-folder
-                    node -e "require('zip-a-folder').zip('.', 'nodeapp-${VERSION}.zip')"
+                    npx zip-a-folder . nodeapp-${VERSION}.zip
                 """
             }
         }
@@ -72,7 +70,7 @@ pipeline {
                     sh """
                         curl -v -u $NEXUS_USER:$NEXUS_PASS \
                         --upload-file nodeapp-${VERSION}.zip \
-                        ${NEXUS_URL}/nodejs/nodeapp-${VERSION}.zip
+                        ${NEXUS_URL}/nodeapp-${VERSION}.zip
                     """
                 }
             }
@@ -80,6 +78,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
+                echo "Building Docker Image..."
                 script {
                     docker.build("${DOCKER_IMAGE}:${VERSION}")
                 }
@@ -88,6 +87,7 @@ pipeline {
 
         stage('Push to DockerHub') {
             steps {
+                echo "Pushing Docker Image..."
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-user',
                     usernameVariable: 'DH_USER',
