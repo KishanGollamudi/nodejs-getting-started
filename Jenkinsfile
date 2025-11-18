@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         SONAR_TOKEN = credentials('SONAR-TOKEN')
-        NEXUS_CRED = credentials('NEXUS-CRED')
+        NEXUS_CRED = credentials('nexus')
         DOCKER_HUB = credentials('DOCKER-HUB')
     }
 
