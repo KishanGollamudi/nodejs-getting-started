@@ -3,15 +3,16 @@ pipeline {
 
     environment {
         SONAR_TOKEN = credentials('sonar-token')
-        NEXUS_CRED = credentials('NEXUS-CRED')
-        DOCKER_HUB = credentials('dockerhub-user')
+        NEXUS_CRED  = credentials('NEXUS-CRED')
+        DOCKER_HUB  = credentials('dockerhub')
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/KishanGollamudi/nodejs-getting-started.git'
+                git branch: 'main',
+                    url: 'https://github.com/KishanGollamudi/nodejs-getting-started.git'
             }
         }
 
@@ -24,7 +25,7 @@ pipeline {
                     echo "NPM version:"
                     npm -v
 
-                    echo Installing Node dependencies...
+                    echo "Installing Node dependencies..."
                     npm install --no-audit --no-fund
                 '''
             }
@@ -46,12 +47,18 @@ pipeline {
 
         stage('Upload to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'NEXUS-CRED', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'NEXUS-CRED',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+
                     sh '''
                         echo "Creating TAR..."
-                        tar --ignore-failed-read --warning=no-file-changed -czf nodeapp.tar.gz *
+                        tar --ignore-failed-read --warning=no-file-changed \
+                            -czf nodeapp.tar.gz *
 
-                        echo "Uploading to Nexus..."
+                        echo "Uploading TAR to Nexus..."
                         curl -v -u $NEXUS_USER:$NEXUS_PASS \
                             --upload-file nodeapp.tar.gz \
                             http://3.89.29.36:8081/repository/nodejs/nodeapp.tar.gz
@@ -69,10 +76,14 @@ pipeline {
             }
         }
 
-
         stage('Push Docker Image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         docker push kishangollamudi/nodeapp:latest
@@ -80,7 +91,7 @@ pipeline {
                 }
             }
         }
-
+    }   // ✅ THIS was missing (closing stages)
 
     post {
         always {
