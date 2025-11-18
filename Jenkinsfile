@@ -47,9 +47,11 @@ pipeline {
         stage('Upload to Nexus') {
             steps {
                 sh '''
+                    tar -czf nodeapp.tar.gz .
+
                     curl -v -u $NEXUS_CRED_USR:$NEXUS_CRED_PSW \
-                        --upload-file nodeapp.zip \
-                        http://3.89.29.36:8081/repository/nodejs/nodeapp.zip
+                        --upload-file nodeapp.tar.gz \
+                        http://3.89.29.36:8081/repository/nodejs/nodeapp.tar.gz
                 '''
             }
         }
