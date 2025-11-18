@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('SONAR-TOKEN')
-        NEXUS_CRED = credentials('nexus')
-        DOCKER_HUB = credentials('DOCKER-HUB')
+        SONAR_TOKEN = credentials('sonar-token')
+        NEXUS_CRED = credentials('NEXUS-CRED')
+        DOCKER_HUB = credentials('dockerhub-user')
     }
 
     stages {
