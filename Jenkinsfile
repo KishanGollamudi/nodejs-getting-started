@@ -63,20 +63,24 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                    docker build -t kishan/nodeapp:latest .
+                    echo "Building Docker image..."
+                    docker build -t kishangollamudi/nodeapp:latest .
                 '''
             }
         }
 
+
         stage('Push Docker Image') {
             steps {
-                sh '''
-                    echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
-                    docker push kishan/nodeapp:latest
-                '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push kishangollamudi/nodeapp:latest
+                    '''
+                }
             }
         }
-    }
+
 
     post {
         always {
