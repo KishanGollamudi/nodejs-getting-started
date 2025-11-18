@@ -44,14 +44,6 @@ pipeline {
             }
         }
 
-        stage('Package Artifact') {
-            steps {
-                sh '''
-                    zip -r nodeapp.zip .
-                '''
-            }
-        }
-
         stage('Upload to Nexus') {
             steps {
                 sh '''
