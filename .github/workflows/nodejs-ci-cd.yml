@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
     # -----------------------------
     # CHECKOUT
     # -----------------------------
@@ -18,7 +17,7 @@ jobs:
       uses: actions/checkout@v4
 
     # -----------------------------
-    # NODE SETUP (REQUIRED 20.x)
+    # NODE SETUP (20.x REQUIRED)
     # -----------------------------
     - name: Set up NodeJS
       uses: actions/setup-node@v4
@@ -32,7 +31,7 @@ jobs:
         npm install --no-audit --no-fund
 
     # -----------------------------
-    # SONARQUBE ANALYSIS (FIXED)
+    # SONARQUBE ANALYSIS (OFFICIAL ACTION)
     # -----------------------------
     - name: SonarQube Scan
       uses: sonarsource/sonarqube-scan-action@v2
@@ -45,37 +44,36 @@ jobs:
           -Dsonar.sources=.
 
     # -----------------------------
-    # PACKAGE APP AS TAR
+    # CREATE TAR.GZ ARTIFACT
     # -----------------------------
     - name: Create TAR Artifact
       run: |
-        echo "Creating tarball..."
-        tar --ignore-failed-read --warning=no-file-changed \
-            -czf nodeapp.tar.gz *
+        echo "Packaging project into TAR..."
+        tar -czf nodeapp.tar.gz *
 
     # -----------------------------
-    # UPLOAD TAR TO NEXUS
+    # UPLOAD TO NEXUS RAW REPO
     # -----------------------------
-    - name: Upload to Nexus Repository
+    - name: Upload to Nexus (RAW Repository)
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
         NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
         NEXUS_HOST: ${{ secrets.NEXUS_HOST }}
       run: |
-        echo "Uploading TAR to Nexus..."
+        echo "Uploading nodeapp.tar.gz to Nexus RAW repository..."
         curl -v -u $NEXUS_USER:$NEXUS_PASS \
           --upload-file nodeapp.tar.gz \
-          $NEXUS_HOST/repository/maven-releases/nodeapp.tar.gz
+          $NEXUS_HOST/repository/nodejs/nodeapp.tar.gz
 
     # -----------------------------
-    # BUILD DOCKER IMAGE
+    # DOCKER IMAGE BUILD
     # -----------------------------
     - name: Build Docker Image
       run: |
         docker build -t ${{ secrets.DOCKER_USER }}/nodeapp:latest .
 
     # -----------------------------
-    # LOGIN TO DOCKERHUB
+    # LOGIN TO DOCKER HUB
     # -----------------------------
     - name: Login to DockerHub
       uses: docker/login-action@v3
@@ -87,5 +85,4 @@ jobs:
     # PUSH DOCKER IMAGE
     # -----------------------------
     - name: Push Docker Image
-      run: |
-        docker push ${{ secrets.DOCKER_USER }}/nodeapp:latest
+      run: docker push ${{ secrets.DOCKER_USER }}/nodeapp:latest
