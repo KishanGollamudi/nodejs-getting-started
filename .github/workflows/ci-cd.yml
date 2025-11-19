@@ -1,4 +1,4 @@
-name: Node App CI/CD
+name: NodeJS CI/CD Pipeline
 
 on:
   push:
@@ -11,77 +11,74 @@ jobs:
 
     steps:
 
-    # ------------------------------
-    # CHECKOUT CODE
-    # ------------------------------
-    - name: Checkout Code
+    # -----------------------------
+    # CHECKOUT
+    # -----------------------------
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # ------------------------------
-    # NODE SETUP + INSTALL DEPENDENCIES
-    # ------------------------------
-    - name: Set up Node
+    # -----------------------------
+    # NODE SETUP
+    # -----------------------------
+    - name: Set up NodeJS
       uses: actions/setup-node@v4
       with:
         node-version: "18"
 
     - name: Install Dependencies
       run: |
-        echo "Node version:"
-        node -v
-        echo "NPM version:"
-        npm -v
+        echo "Node version:" && node -v
+        echo "NPM version:" && npm -v
         npm install --no-audit --no-fund
 
-    # ------------------------------
+    # -----------------------------
     # SONARQUBE ANALYSIS
-    # ------------------------------
+    # -----------------------------
     - name: SonarQube Scan
       env:
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: |
-        echo "Running SonarQube analysis..."
+        echo "Running Sonar Scan..."
         /opt/sonar-scanner/bin/sonar-scanner \
           -Dsonar.projectKey=nodeapp \
           -Dsonar.sources=. \
           -Dsonar.host.url=$SONAR_HOST_URL \
           -Dsonar.login=$SONAR_TOKEN
 
-    # ------------------------------
+    # -----------------------------
+    # PACKAGE APP (TAR FILE)
+    # -----------------------------
+    - name: Create TAR Artifact
+      run: |
+        echo "Creating tarball..."
+        tar --ignore-failed-read --warning=no-file-changed \
+            -czf nodeapp.tar.gz *
+
+    # -----------------------------
     # UPLOAD TAR TO NEXUS
-    # ------------------------------
-    - name: Upload Artifact to Nexus
+    # -----------------------------
+    - name: Upload to Nexus Repository
       env:
         NEXUS_USER: ${{ secrets.NEXUS_USER }}
         NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
       run: |
-        echo "Creating TAR..."
-        tar --ignore-failed-read --warning=no-file-changed \
-            -czf nodeapp.tar.gz *
-
-        echo "Uploading to Nexus..."
+        echo "Uploading TAR to Nexus..."
         curl -v -u $NEXUS_USER:$NEXUS_PASS \
           --upload-file nodeapp.tar.gz \
-          http://3.89.29.36:8081/repository/nodejs/nodeapp.tar.gz
+          ${{ secrets.NEXUS_HOST }}/repository/maven-releases/nodeapp.tar.gz
 
-    # ------------------------------
-    # BUILD DOCKER IMAGE
-    # ------------------------------
+    # -----------------------------
+    # OPTIONAL: DOCKER BUILD & PUSH
+    # -----------------------------
     - name: Build Docker Image
-      run: |
-        echo "Building Docker image..."
-        docker build -t kishangollamudi/nodeapp:latest .
+      run: docker build -t ${{ secrets.DOCKER_USER }}/nodeapp:latest .
 
-    # ------------------------------
-    # PUSH DOCKER IMAGE TO DOCKERHUB
-    # ------------------------------
-    - name: Login to Docker Hub
+    - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASS }}
 
     - name: Push Docker Image
-      run: |
-        docker push kishangollamudi/nodeapp:latest
+      run: docker push ${{ secrets.DOCKER_USER }}/nodeapp:latest
